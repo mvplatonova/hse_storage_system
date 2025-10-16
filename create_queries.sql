@@ -27,6 +27,20 @@ create table hub_order (
 ) distributed by (order_key);
 
 --
+-- Links
+--
+
+-- LINK_SALES
+create table link_sales (
+    link_sales_key serial primary key,
+    order_key int references hub_order(order_key),
+    customer_key int references hub_customer(customer_key),
+    product_key int references hub_product(product_key),
+    load_date timestamp default now(),
+    record_source text
+) distributed by (link_sales_key);
+
+--
 -- Satellites
 --
 
@@ -73,17 +87,3 @@ create table sat_sales_details (
     load_date timestamp default now(),
     record_source text
 ) distributed by (sat_sales_key);
-
---
--- Links
---
-
--- LINK_SALES
-create table link_sales (
-    link_sales_key serial primary key,
-    order_key int references hub_order(order_key),
-    customer_key int references hub_customer(customer_key),
-    product_key int references hub_product(product_key),
-    load_date timestamp default now(),
-    record_source text
-) distributed by (link_sales_key);
