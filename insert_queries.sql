@@ -1,7 +1,5 @@
 -- EXTRAS
 create table tmp_data (
-    order_id text,
-    customer_id text,
     segment text,
     country text,
     city text,
@@ -19,6 +17,28 @@ create table tmp_data (
 
 \copy tmp_data from 'dataset.csv' CSV HEADER;
 
+create table tmp_data_updated as
+select
+    segment,
+    country,
+    city,
+    state,
+    postal_code,
+    region,
+    category,
+    sub_category,
+    ship_mode,
+    sales,
+    quantity,
+    discount,
+    profit,
+    row_number() over() as row_num,
+    md5(row_number() over()::text) as order_id,
+    md5(concat_ws('|', segment, country, city, state, postal_code, region)) as customer_id,
+    now() as load_date,
+    'dataset.csv' as record_source
+from tmp_data
+
 --
 -- Hubs
 --
@@ -27,24 +47,24 @@ create table tmp_data (
 insert into hub_customer (customer_id, record_source)
 select distinct
     customer_id,
-    'data.csv'
-from tmp_data
+    record_source
+from tmp_data_updated
 where customer_id is not null;
 
 -- HUB_PRODUCT
 insert into hub_product (sub_category, record_source)
 select distinct
     sub_category,
-    'data.csv'
-from tmp_data
+    record_source
+from tmp_data_updated
 where sub_category is not null;
 
 -- HUB_ORDER
 insert into hub_order (order_id, record_source)
 select distinct
     order_id,
-    'data.csv'
-from tmp_data
+    record_source
+from tmp_data_updated
 where order_id is not null;
 
 --
@@ -57,8 +77,8 @@ select distinct
     ho.order_key,
     hc.customer_key,
     hp.product_key,
-    'data.csv'
-from tmp_data t
+    t.record_source
+from tmp_data_updated t
 join hub_order ho on ho.order_id = t.order_id
 join hub_customer hc on hc.customer_id = t.customer_id
 join hub_product hp on hp.sub_category = t.sub_category;
@@ -80,8 +100,8 @@ select distinct
     t.state,
     t.region,
     t.postal_code,
-    'data.csv'
-from tmp_data t
+    t.record_source
+from tmp_data_updated t
 join hub_customer hc on hc.customer_id = t.customer_id;
 
 -- SAT_PRODUCT_DETAILS
@@ -91,8 +111,8 @@ insert into sat_product_details (
 select distinct
     hp.product_key,
     t.category,
-    'data.csv'
-from tmp_data t
+    t.record_source
+from tmp_data_updated t
 join hub_product hp on hp.sub_category = t.sub_category;
 
 -- SAT_ORDER_DETAILS
@@ -102,8 +122,8 @@ insert into sat_order_details (
 select distinct
     ho.order_key,
     t.ship_mode,
-    'data.csv'
-from tmp_data t
+    t.record_source
+from tmp_data_updated t
 join hub_order ho on ho.order_id = t.order_id;
 
 -- SAT_SALES_DETAILS
@@ -116,8 +136,8 @@ select
     t.quantity,
     t.discount,
     t.profit,
-    'data.csv'
-from tmp_data t
+    t.record_source
+from tmp_data_updated t
 join hub_order ho on ho.order_id = t.order_id
 join hub_customer hc on hc.customer_id = t.customer_id
 join hub_product hp on hp.sub_category = t.sub_category
@@ -129,5 +149,4 @@ join link_sales ls
 
 -- EXTRAS
 drop table tmp_data;
-
-
+drop table tmp_data_updated;
